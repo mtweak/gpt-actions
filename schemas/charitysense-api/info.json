@@ -1,0 +1,8 @@
+{
+  "title": "CharitySense API",
+  "shortdesc": "Search, compare, and explain U.S. nonprofits using CharitySense IRS Form 990 data.",
+  "format": "YAML",
+  "auth": "No authentication",
+  "desc": "CharitySense provides a no-auth GPT Action for U.S. nonprofit research based on IRS Form 990 data. Use it for donor-intent search, charity/EIN lookup, nonprofit comparison, financial metrics, governance review, ratings, beneficiary geography, and citation-ready CharitySense profile URLs. Agent-facing docs: https://data.charitysense.com/agents",
+  "author": "mtweak"
+}

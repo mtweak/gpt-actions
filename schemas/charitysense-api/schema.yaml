@@ -1,0 +1,1314 @@
+openapi: 3.1.0
+info:
+  title: CharitySense API
+  version: 1.1.0
+  description: >
+    CharitySense API for searching, summarizing, retrieving, and analyzing U.S.-registered nonprofits using CharitySense
+    IRS Form 990 data, derived ratings, geography, financials, governance fields, and metrics.
+  contact:
+    name: CharitySense
+    email: mazhar@charitysense.com
+    url: https://data.charitysense.com/contact
+externalDocs:
+  description: CharitySense agent and developer documentation
+  url: https://data.charitysense.com/agents
+servers:
+  - url: https://data.charitysense.com
+tags:
+  - name: Agents
+    description: Agent-ready charity search and nonprofit research endpoints.
+  - name: Charities
+    description: Charity lookup, summaries, documents, and metrics.
+  - name: Dataset
+    description: Dataset-wide statistics and schemas.
+  - name: Feedback
+    description: Optional agent identity and result-quality feedback.
+paths:
+  /api/v1/charity-search:
+    get:
+      tags:
+        - Agents
+        - Charities
+      operationId: searchCharities
+      summary: Search charities using natural language or structured filters.
+      description: >
+        Use this first for broad donor-intent queries, charity names, EIN lookups, geography, financial thresholds,
+        ratios, ratings, and cause/category searches. Interpret overseas country names as beneficiary/program geography unless the user explicitly asks for locally registered
+        non-U.S. charities.
+      x-openai-isConsequential: false
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search text, charity name, donor intent, analytical query, or EIN.
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          description: Sort order.
+          schema:
+            type: string
+            enum:
+              - relevance
+              - revenue
+              - assets
+              - rating
+              - program_ratio
+              - recent
+            default: relevance
+        - name: state
+          in: query
+          required: false
+          description: Optional two-letter U.S. state filter, such as CA, TX, MI.
+          schema:
+            type: string
+        - name: min_revenue
+          in: query
+          required: false
+          description: Optional minimum latest-year total revenue in USD.
+          schema:
+            type: number
+        - name: page
+          in: query
+          required: false
+          description: One-based page number.
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: Page size. Maximum 100.
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Search results wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchEnvelope"
+  /api/v1/charity-featured:
+    get:
+      tags:
+        - Charities
+      operationId: getFeaturedCharities
+      summary: Get curated featured organizations.
+      description: >
+        Use only when the user asks for featured, example, curated, or landing-page charities. Do not use this for
+        normal recommendations when a search query is available.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Featured charities wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeaturedEnvelope"
+  /api/v1/global-stats:
+    get:
+      tags:
+        - Dataset
+      operationId: getGlobalStats
+      summary: Get sector-wide CharitySense totals.
+      description: >
+        Use when the user asks about the size of the CharitySense dataset, total nonprofit count, total filings, sector
+        totals, aggregate revenue, aggregate assets, or program dollars.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Global CharitySense statistics wrapped in the response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalStatsEnvelope"
+  /api/v1/charity-summary/{ein}:
+    get:
+      tags:
+        - Charities
+      operationId: getCharitySummary
+      summary: Get card-level charity summary by EIN.
+      description: >
+        Use for quick charity cards, short comparisons, or when the full document is not needed. For final
+        recommendations or detailed analysis, use getCharityDocument after this.
+      x-openai-isConsequential: false
+      parameters:
+        - name: ein
+          in: path
+          required: true
+          description: Employer Identification Number, with or without hyphen.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Card-level charity summary wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryEnvelope"
+  /api/v1/charity-document/{ein}:
+    get:
+      tags:
+        - Charities
+      operationId: getCharityDocument
+      summary: Get the full CharitySense structured charity document by EIN.
+      description: >
+        Use this for specific charity questions, detailed recommendations, comparisons, zakat/policy review, governance
+        review, financial analysis, ratings, and full filing data. This endpoint returns all filings plus the latest
+        filing record where available.
+      x-openai-isConsequential: false
+      parameters:
+        - name: ein
+          in: path
+          required: true
+          description: Employer Identification Number, with or without hyphen.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Full charity document wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentEnvelope"
+  /api/v1/charity-metrics/{ein}:
+    get:
+      tags:
+        - Charities
+      operationId: getCharityMetrics
+      summary: Get financial and impact metric series for charts by EIN.
+      description: >
+        Use this for trend questions, year-over-year changes, revenue growth, expense trends, assets, ratios, reserves,
+        and multi-year metric analysis.
+      x-openai-isConsequential: false
+      parameters:
+        - name: ein
+          in: path
+          required: true
+          description: Employer Identification Number, with or without hyphen.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Metric series wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsEnvelope"
+  /api/v1/agent-feedback:
+    post:
+      tags:
+        - Agents
+        - Feedback
+      operationId: sendAgentFeedback
+      summary: Send optional agent identity and data-quality feedback.
+      description: >
+        Agents can use this endpoint when CharitySense results are missing, confusing, incomplete, or when
+        the agent wants different data, better ranking, clearer fields, a new endpoint, or follow-up from the
+        CharitySense team. This endpoint is optional, no-auth, and should not be called for every normal API
+        request. Agents may also send X-Agent-Name, X-Agent-Version, X-Agent-Owner, X-Agent-Contact,
+        X-Agent-Purpose, X-Agent-Community, and X-Agent-Session headers.
+      x-openai-isConsequential: true
+      parameters:
+        - name: X-Agent-Name
+          in: header
+          required: false
+          description: Agent or product name.
+          schema:
+            type: string
+        - name: X-Agent-Version
+          in: header
+          required: false
+          description: Agent version or build identifier.
+          schema:
+            type: string
+        - name: X-Agent-Owner
+          in: header
+          required: false
+          description: Person, company, project, or organization responsible for the agent.
+          schema:
+            type: string
+        - name: X-Agent-Contact
+          in: header
+          required: false
+          description: Contact email, URL, or handle for follow-up.
+          schema:
+            type: string
+        - name: X-Agent-Purpose
+          in: header
+          required: false
+          description: Short description of the agent's purpose.
+          schema:
+            type: string
+        - name: X-Agent-Community
+          in: header
+          required: false
+          description: Community, repo, Discord, forum, or docs URL for the agent.
+          schema:
+            type: string
+        - name: X-Agent-Session
+          in: header
+          required: false
+          description: Agent-generated session id for grouping related feedback.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentFeedbackRequest"
+            examples:
+              missingData:
+                summary: Tell CharitySense what data was missing.
+                value:
+                  agent_name: Example Research Agent
+                  agent_platform: OpenAPI
+                  owner_email: agent-owner@example.com
+                  purpose: donor research assistant
+                  task: find clean water charities with strong governance
+                  query: clean water charities with strong financials
+                  endpoint_used: /api/v1/charity-search
+                  feedback_type: missing_data
+                  message: The search results were useful, but my answer needed grant-recipient geography and clearer water-program evidence.
+                  desired_data: grant-recipient country, program evidence snippets, latest filing year per result
+      responses:
+        "200":
+          description: Feedback accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentFeedbackEnvelope"
+        "400":
+          description: Invalid feedback payload.
+        "429":
+          description: Feedback rate limit reached.
+  /charities/{ein}:
+    get:
+      tags:
+        - Charities
+      operationId: getCoreFiling
+      summary: Get a core IRS 990 filing record by EIN, optionally for a specific year.
+      description: >
+        Use only when the user asks for a specific filing year or core IRS 990 filing record. For normal charity
+        research, prefer getCharityDocument. Do not use any validate parameter.
+      x-openai-isConsequential: false
+      parameters:
+        - name: ein
+          in: path
+          required: true
+          description: Employer Identification Number, with or without hyphen.
+          schema:
+            type: string
+        - name: year
+          in: query
+          required: false
+          description: Specific tax year to retrieve.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Core filing record wrapped in the CharitySense response envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoreFilingEnvelope"
+components:
+  schemas:
+    SearchEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the request succeeded.
+        data:
+          $ref: "#/components/schemas/SearchData"
+        error:
+          type: string
+          nullable: true
+          description: Error message if success is false.
+      required:
+        - success
+      additionalProperties: true
+    FeaturedEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/FeaturedData"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    GlobalStatsEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/GlobalStatsData"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    SummaryEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/CharitySummary"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    DocumentEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/CharityDocument"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    MetricsEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/MetricsData"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    CoreFilingEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/CoreFilingData"
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    AgentFeedbackEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            feedback_id:
+              type: string
+              description: Tracking id for the accepted feedback record.
+            db_saved:
+              type: boolean
+              description: Whether the feedback was also persisted in MongoDB. JSONL logging is best effort.
+            message:
+              type: string
+        error:
+          type: string
+          nullable: true
+      required:
+        - success
+      additionalProperties: true
+    AgentFeedbackRequest:
+      type: object
+      description: Optional agent identity, intent, and result-quality feedback.
+      properties:
+        agent_name:
+          type: string
+          description: Agent, assistant, crawler, product, or integration name.
+        agent_version:
+          type: string
+          description: Agent version or build identifier.
+        agent_platform:
+          type: string
+          description: Runtime or ecosystem, such as ChatGPT GPT, Claude, OpenAPI, OpenClaw, Hermes, LangChain, or custom.
+        owner_name:
+          type: string
+          description: Person, company, project, or organization responsible for the agent.
+        owner_email:
+          type: string
+          description: Optional contact email for follow-up.
+        owner_url:
+          type: string
+          description: Optional homepage, repo, profile, or docs URL for the owner or project.
+        community_url:
+          type: string
+          description: Optional community, forum, Discord, Reddit, GitHub, or documentation URL.
+        purpose:
+          type: string
+          description: What the agent is trying to help users do.
+        task:
+          type: string
+          description: The concrete user task or workflow being attempted.
+        query:
+          type: string
+          description: The CharitySense query or user intent that led to feedback.
+        endpoint_used:
+          type: string
+          description: CharitySense endpoint used before giving feedback.
+        result_url:
+          type: string
+          description: Optional CharitySense result, API URL, or canonical charity page related to the feedback.
+        ein:
+          type: string
+          description: Optional EIN related to the feedback.
+        feedback_type:
+          type: string
+          description: Type of feedback.
+          enum:
+            - missing_data
+            - ranking_quality
+            - confusing_result
+            - wrong_match
+            - desired_endpoint
+            - citation_issue
+            - latency
+            - schema_issue
+            - other
+        message:
+          type: string
+          description: Human-readable explanation of what happened or what should improve.
+        desired_data:
+          type: string
+          description: Data, insight, endpoint, or field the agent wished CharitySense provided.
+        metadata:
+          type: object
+          description: Optional small key/value context from the agent. Values are truncated server-side.
+          additionalProperties:
+            type: string
+      additionalProperties: false
+    SearchData:
+      type: object
+      properties:
+        charities:
+          type: array
+          description: Ranked charity search results.
+          items:
+            $ref: "#/components/schemas/CharitySearchResult"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+        query:
+          type: string
+          description: Original or interpreted query.
+        total:
+          type: integer
+          description: Total result count if provided.
+      additionalProperties: true
+    FeaturedData:
+      type: object
+      properties:
+        charities:
+          type: array
+          description: Featured or curated charity records.
+          items:
+            $ref: "#/components/schemas/CharitySearchResult"
+        featured:
+          type: array
+          description: Alternative featured records field.
+          items:
+            $ref: "#/components/schemas/CharitySearchResult"
+      additionalProperties: true
+    GlobalStatsData:
+      type: object
+      properties:
+        org_count:
+          type: integer
+          description: Number of nonprofits in CharitySense.
+        nonprofit_count:
+          type: integer
+          description: Alternative nonprofit count field.
+        filings_count:
+          type: integer
+          description: Number of IRS Form 990 filings.
+        total_revenue:
+          type: number
+          description: Aggregate revenue.
+        total_expenses:
+          type: number
+          description: Aggregate expenses.
+        total_assets:
+          type: number
+          description: Aggregate assets.
+        program_dollars:
+          type: number
+          description: Aggregate program service dollars.
+        latest_tax_year:
+          type: integer
+          description: Latest tax year represented.
+      additionalProperties: true
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+        has_next:
+          type: boolean
+        has_prev:
+          type: boolean
+      additionalProperties: true
+    CharitySearchResult:
+      type: object
+      properties:
+        ein:
+          type: string
+          description: 9-digit EIN.
+        name:
+          type: string
+          description: Organization name.
+        organization_name:
+          type: string
+          description: Alternative organization name field.
+        city:
+          type: string
+        state:
+          type: string
+        zip_code:
+          type: string
+        mission:
+          type: string
+        website:
+          type: string
+        category:
+          type: string
+          description: Human-readable sector or category.
+        ntee_code:
+          type: string
+        ntee_major:
+          type: string
+        affiliation_type:
+          type: string
+        countries_served:
+          type: array
+          items:
+            type: string
+        regions_served:
+          type: array
+          items:
+            type: string
+        total_revenue:
+          type: number
+        total_expenses:
+          type: number
+        total_assets:
+          type: number
+        net_assets:
+          type: number
+        program_ratio:
+          type: number
+          description: Program expenses divided by total expenses.
+        fundraising_ratio:
+          type: number
+        admin_ratio:
+          type: number
+        reserve_months:
+          type: number
+        overall_rating:
+          type: number
+          description: CharitySense headline percentile from 0 to 1.
+        financial_health_score:
+          type: number
+        governance_score:
+          type: number
+        transparency_score:
+          type: number
+        risk_score:
+          type: number
+        latest_tax_year:
+          type: integer
+        return_type:
+          type: string
+        founded:
+          type: integer
+        donation_categories:
+          type: array
+          items:
+            type: string
+        accepts_zakat:
+          type: boolean
+        zakat_policy:
+          $ref: "#/components/schemas/ZakatPolicy"
+      additionalProperties: true
+    CharitySummary:
+      type: object
+      properties:
+        ein:
+          type: string
+        name:
+          type: string
+        organization_name:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip_code:
+          type: string
+        website:
+          type: string
+        mission:
+          type: string
+        latest_tax_year:
+          type: integer
+        total_revenue:
+          type: number
+        total_expenses:
+          type: number
+        total_assets:
+          type: number
+        net_assets:
+          type: number
+        program_ratio:
+          type: number
+        fundraising_ratio:
+          type: number
+        admin_ratio:
+          type: number
+        reserve_months:
+          type: number
+        overall_rating:
+          type: number
+        financial_health_score:
+          type: number
+        governance_score:
+          type: number
+        transparency_score:
+          type: number
+        risk_score:
+          type: number
+        category:
+          type: string
+        ntee_code:
+          type: string
+        countries_served:
+          type: array
+          items:
+            type: string
+        regions_served:
+          type: array
+          items:
+            type: string
+        donation_categories:
+          type: array
+          items:
+            type: string
+        zakat_policy:
+          $ref: "#/components/schemas/ZakatPolicy"
+      additionalProperties: true
+    CharityDocument:
+      type: object
+      properties:
+        ein:
+          type: string
+        name:
+          type: string
+        organization_name:
+          type: string
+        latest_tax_year:
+          type: integer
+        latest_filing:
+          $ref: "#/components/schemas/FilingRecord"
+        filings:
+          type: array
+          description: All available filing records.
+          items:
+            $ref: "#/components/schemas/FilingRecord"
+        summary:
+          $ref: "#/components/schemas/CharitySummary"
+        Basic:
+          $ref: "#/components/schemas/BasicInfo"
+        basic:
+          $ref: "#/components/schemas/BasicInfo"
+        Organization:
+          type: array
+          description: Officers, directors, trustees, key employees, and compensation records.
+          items:
+            $ref: "#/components/schemas/PersonCompensation"
+        organization:
+          type: array
+          description: Alternative organization/personnel field.
+          items:
+            $ref: "#/components/schemas/PersonCompensation"
+        Governance:
+          $ref: "#/components/schemas/GovernanceInfo"
+        governance:
+          $ref: "#/components/schemas/GovernanceInfo"
+        Revenues:
+          $ref: "#/components/schemas/FinancialSection"
+        revenues:
+          $ref: "#/components/schemas/FinancialSection"
+        Expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        Functional_Expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        functional_expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        Assets:
+          $ref: "#/components/schemas/FinancialSection"
+        assets:
+          $ref: "#/components/schemas/FinancialSection"
+        Liabilities:
+          $ref: "#/components/schemas/FinancialSection"
+        liabilities:
+          $ref: "#/components/schemas/FinancialSection"
+        Fund_Balance:
+          $ref: "#/components/schemas/FinancialSection"
+        fund_balance:
+          $ref: "#/components/schemas/FinancialSection"
+        Ratings:
+          $ref: "#/components/schemas/RatingsInfo"
+        ratings:
+          $ref: "#/components/schemas/RatingsInfo"
+        metrics:
+          $ref: "#/components/schemas/MetricsData"
+        donation_categories:
+          type: array
+          items:
+            type: string
+        zakat_policy:
+          $ref: "#/components/schemas/ZakatPolicy"
+      additionalProperties: true
+    FilingRecord:
+      type: object
+      properties:
+        ein:
+          type: string
+        tax_year:
+          type: integer
+        latest_tax_year:
+          type: integer
+        return_type:
+          type: string
+        form_type:
+          type: string
+        tax_period_begin:
+          type: string
+        tax_period_end:
+          type: string
+        filing_url:
+          type: string
+        xml_url:
+          type: string
+        pdf_url:
+          type: string
+        Basic:
+          $ref: "#/components/schemas/BasicInfo"
+        Organization:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonCompensation"
+        Governance:
+          $ref: "#/components/schemas/GovernanceInfo"
+        Revenues:
+          $ref: "#/components/schemas/FinancialSection"
+        Expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        Functional_Expenses:
+          $ref: "#/components/schemas/FinancialSection"
+        Assets:
+          $ref: "#/components/schemas/FinancialSection"
+        Liabilities:
+          $ref: "#/components/schemas/FinancialSection"
+        Fund_Balance:
+          $ref: "#/components/schemas/FinancialSection"
+        Ratings:
+          $ref: "#/components/schemas/RatingsInfo"
+      additionalProperties: true
+    BasicInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        legal_name:
+          type: string
+        mission:
+          type: string
+        website:
+          type: string
+        phone:
+          type: string
+        form_type:
+          type: string
+        return_type:
+          type: string
+        tax_year:
+          type: integer
+        tax_period_begin:
+          type: string
+        tax_period_end:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        zip_code:
+          type: string
+        country:
+          type: string
+        formation_year:
+          type: integer
+        founded:
+          type: integer
+        legal_domicile:
+          type: string
+        principal_officer:
+          type: string
+        volunteers:
+          type: integer
+        employees:
+          type: integer
+        employees_total:
+          type: integer
+        religious_identity:
+          type: string
+        affiliation:
+          type: string
+        affiliation_type:
+          type: string
+        category:
+          type: string
+        ntee_code:
+          type: string
+        ntee_major:
+          type: string
+        activity_categories:
+          type: array
+          items:
+            type: string
+        countries_served:
+          type: array
+          items:
+            type: string
+        regions_served:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+    PersonCompensation:
+      type: object
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        average_hours_per_week:
+          type: number
+        hours_per_week:
+          type: number
+        compensation:
+          type: number
+        total_compensation:
+          type: number
+        direct_compensation:
+          type: number
+        other_compensation:
+          type: number
+        reportable_compensation:
+          type: number
+        related_compensation:
+          type: number
+      additionalProperties: true
+    GovernanceInfo:
+      type: object
+      properties:
+        is_501c3:
+          type: boolean
+        board_size:
+          type: integer
+        voting_board_members:
+          type: integer
+        independent_voting_board_members:
+          type: integer
+        independent_board_percentage:
+          type: number
+        employees_total:
+          type: integer
+        conflict_of_interest_policy:
+          type: boolean
+        whistleblower_policy:
+          type: boolean
+        document_retention_policy:
+          type: boolean
+        board_meeting_minutes:
+          type: boolean
+        compensation_review:
+          type: boolean
+        material_diversion:
+          type: boolean
+        audited_financials:
+          type: boolean
+        foreign_activities:
+          type: boolean
+        fundraising_activities:
+          type: boolean
+        related_party_transactions:
+          type: boolean
+        local_chapters:
+          type: boolean
+        form_990_provided_to_board:
+          type: boolean
+        donor_advised_funds:
+          type: boolean
+        related_organizations:
+          type: boolean
+        grants_to_officers:
+          type: boolean
+        loans_to_officers:
+          type: boolean
+      additionalProperties: true
+    FinancialSection:
+      type: object
+      properties:
+        total:
+          type: number
+        total_revenue:
+          type: number
+        total_expenses:
+          type: number
+        total_assets:
+          type: number
+        total_liabilities:
+          type: number
+        net_assets:
+          type: number
+        program_service:
+          type: number
+        program_service_expenses:
+          type: number
+        management_general:
+          type: number
+        management_general_expenses:
+          type: number
+        fundraising:
+          type: number
+        fundraising_expenses:
+          type: number
+        contributions:
+          type: number
+        grants:
+          type: number
+        grant_revenue:
+          type: number
+        program_revenue:
+          type: number
+        investment_income:
+          type: number
+        fundraising_revenue:
+          type: number
+        related_org_revenue:
+          type: number
+        other_revenue:
+          type: number
+        salaries:
+          type: number
+        wages:
+          type: number
+        employee_benefits:
+          type: number
+        payroll_taxes:
+          type: number
+        officer_compensation:
+          type: number
+        total_officer_comp:
+          type: number
+        highest_paid_person_comp:
+          type: number
+        professional_fundraising_fees:
+          type: number
+        accounting_fees:
+          type: number
+        legal_fees:
+          type: number
+        advertising:
+          type: number
+        office_expenses:
+          type: number
+        information_technology:
+          type: number
+        occupancy:
+          type: number
+        travel:
+          type: number
+        conferences:
+          type: number
+        depreciation:
+          type: number
+        insurance:
+          type: number
+        domestic_grants:
+          type: number
+        foreign_grants:
+          type: number
+        cash:
+          type: number
+        savings:
+          type: number
+        accounts_receivable:
+          type: number
+        pledges_receivable:
+          type: number
+        inventories:
+          type: number
+        prepaid_expenses:
+          type: number
+        land_buildings_equipment:
+          type: number
+        publicly_traded_securities:
+          type: number
+        program_related_investments:
+          type: number
+        intangible_assets:
+          type: number
+        other_assets:
+          type: number
+        accounts_payable:
+          type: number
+        grants_payable:
+          type: number
+        deferred_revenue:
+          type: number
+        loans:
+          type: number
+        mortgages:
+          type: number
+        other_liabilities:
+          type: number
+        unrestricted_net_assets:
+          type: number
+        restricted_net_assets:
+          type: number
+      additionalProperties: true
+    RatingsInfo:
+      type: object
+      properties:
+        overall_rating:
+          type: number
+          description: CharitySense headline percentile from 0 to 1.
+        overall_score:
+          type: number
+        financial_health_score:
+          type: number
+        governance_score:
+          type: number
+        transparency_score:
+          type: number
+        risk_score:
+          type: number
+        program_ratio:
+          type: number
+        program_expense_ratio:
+          type: number
+        fundraising_ratio:
+          type: number
+        fundraising_efficiency:
+          type: number
+        admin_ratio:
+          type: number
+        operating_margin:
+          type: number
+        liabilities_to_assets:
+          type: number
+        reserve_months:
+          type: number
+        reserves_ratio:
+          type: number
+        officer_compensation_ratio:
+          type: number
+        independent_board_percentage:
+          type: number
+        governance_policy_score:
+          type: number
+        revenue_yoy_pct_latest:
+          type: number
+        revenue_5yr_cagr:
+          type: number
+        revenue_10yr_cagr:
+          type: number
+        revenue_growth_streak_years:
+          type: integer
+        revenue_decline_streak_years:
+          type: integer
+        expense_yoy_pct_latest:
+          type: number
+        net_assets_yoy_pct_latest:
+          type: number
+      additionalProperties: true
+    ZakatPolicy:
+      type: object
+      properties:
+        accepts_zakat:
+          type: boolean
+        published_zakat_policy:
+          type: string
+        policy_url:
+          type: string
+        source_url:
+          type: string
+        zakat_eligible_programs:
+          type: array
+          items:
+            type: string
+        admin_fee_policy:
+          type: string
+        confidence:
+          type: number
+      additionalProperties: true
+    MetricsData:
+      type: object
+      properties:
+        ein:
+          type: string
+        name:
+          type: string
+        years:
+          type: array
+          items:
+            type: integer
+        revenue:
+          type: array
+          items:
+            type: number
+        expenses:
+          type: array
+          items:
+            type: number
+        assets:
+          type: array
+          items:
+            type: number
+        liabilities:
+          type: array
+          items:
+            type: number
+        net_assets:
+          type: array
+          items:
+            type: number
+        program_ratio:
+          type: array
+          items:
+            type: number
+        fundraising_ratio:
+          type: array
+          items:
+            type: number
+        admin_ratio:
+          type: array
+          items:
+            type: number
+        reserve_months:
+          type: array
+          items:
+            type: number
+        overall_rating:
+          type: array
+          items:
+            type: number
+        financial_health_score:
+          type: array
+          items:
+            type: number
+        governance_score:
+          type: array
+          items:
+            type: number
+        transparency_score:
+          type: array
+          items:
+            type: number
+        risk_score:
+          type: array
+          items:
+            type: number
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricPoint"
+      additionalProperties: true
+    MetricPoint:
+      type: object
+      properties:
+        tax_year:
+          type: integer
+        total_revenue:
+          type: number
+        total_expenses:
+          type: number
+        total_assets:
+          type: number
+        total_liabilities:
+          type: number
+        net_assets:
+          type: number
+        program_ratio:
+          type: number
+        fundraising_ratio:
+          type: number
+        admin_ratio:
+          type: number
+        reserve_months:
+          type: number
+        overall_rating:
+          type: number
+        financial_health_score:
+          type: number
+        governance_score:
+          type: number
+        transparency_score:
+          type: number
+        risk_score:
+          type: number
+      additionalProperties: true
+    CoreFilingData:
+      type: object
+      properties:
+        ein:
+          type: string
+        tax_year:
+          type: integer
+        return_type:
+          type: string
+        form_type:
+          type: string
+        filing:
+          $ref: "#/components/schemas/FilingRecord"
+        record:
+          $ref: "#/components/schemas/FilingRecord"
+      additionalProperties: true
